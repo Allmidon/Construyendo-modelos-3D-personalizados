@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>WebXR - Visor de Mapa GLB</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        /* Estilos básicos para que el canvas ocupe todo */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: sans-serif;
+            background-color: #000;
+        }
+        #app-container { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+        }
+        /* Estilo simple para el botón de VR por si no carga */
+        #VRButton {
+            color: white;
+            background-color: #333;
+            border: 1px solid white;
+        }
+    </style>
+</head>
+<body>
+    
+    <!-- Contenedor para la escena de Three.js -->
+    <div id="app-container"></div>
+
+    <!-- Import map para Three.js y sus addons desde un CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <!-- Código principal de la aplicación -->
+    <script type="module">
+
+        import * as THREE from 'three';
+        import { VRButton } from 'three/addons/webxr/VRButton.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Variables Globales Simplificadas ---
+        let camera, scene, renderer;
+        let controls; // OrbitControls
+        const container = document.getElementById('app-container');
+
+        // --- Inicialización ---
+        function init() {
+            // Escena
+            scene = new THREE.Scene();
+
+            // Cámara
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            renderer.setAnimationLoop(animate); // Bucle de animación
+            
+            // WebXR
+            renderer.xr.enabled = true;
+            document.body.appendChild(VRButton.createButton(renderer));
+
+            container.appendChild(renderer.domElement);
+
+            // --- Eventos de la Ventana ---
+            window.addEventListener('resize', onWindowResize);
+
+            // Llamar directamente a la única escena
+            setupScene();
+        }
+
+        // --- Bucle de Animación (Render Loop) ---
+        function animate() {
+            // Actualiza OrbitControls (para mouse)
+            if (controls) controls.update(); 
+
+            renderer.render(scene, camera);
+        }
+
+        // --- Configuración de la Escena (Basada en Escenario 1) ---
+        function setupScene() {
+            // Fondo de cielo
+            scene.background = new THREE.Color(0x88ccee);
+            scene.fog = new THREE.Fog(0x88ccee, 0, 100);
+
+            // Luces
+            const fillLight1 = new THREE.HemisphereLight(0x8dc1de, 0x00668d, 1.5);
+            fillLight1.position.set(2, 1, 1);
+            scene.add(fillLight1);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5);
+            directionalLight.position.set(-5, 25, -1);
+            scene.add(directionalLight);
+
+            // Posición de cámara FIJA (vista superior)
+            // En modo VR, esta posición se sobrescribe por la del visor (0,0,0)
+            camera.position.set(0, 25, 0); 
+
+            // Controles de mouse (OrbitControls) para escritorio
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 0, 0); // Mirando al centro del mapa
+            controls.enableDamping = true;
+            controls.enablePan = false; // Deshabilita el "paneo" (arrastrar)
+            controls.enableZoom = true; // Permite hacer zoom
+
+            // Cargar el mapa GLB
+            const loader = new GLTFLoader();
+            loader.load('models/Salon chidoF.glb', (gltf) => {
+                
+                // Aplicar la rotación de 90 grados solicitada previamente
+                gltf.scene.rotation.y = -Math.PI / 2; // -90 grados
+
+                // --- ¡CAMBIO AQUÍ! ---
+                // Reducir la escala del modelo a la mitad (50%)
+                gltf.scene.scale.set(0.15, 0.15, 0.15);
+
+                scene.add(gltf.scene);
+                
+            }, undefined, (error) => {
+                console.error('Error al cargar el mapa:', error);
+            });
+        }
+
+        // --- Manejador de Redimensión de Ventana ---
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- Iniciar la aplicación ---
+        init();
+
+    </script>
+</body>
+</html>
